@@ -1,5 +1,5 @@
 from clustering import *
-
+from hungarian import *
 ####################################################### SPATIAL COHERENCE #######################################################
 def cluster_label_change(cluster, max_size):
     l = len(cluster.objects)
@@ -56,7 +56,7 @@ def spatial_coherence(clustering, cardinality):
 
     return float(nbr_changes-expected)/(cardinality-expected), 1
 
-####################################################### Similarities #######################################################
+####################################################### f1 #######################################################
 # 2 helpers for computing the precision and the recall between 2 sets
 def set_convert(ls):
     if ls.__class__.__name__ !='set':
@@ -86,14 +86,7 @@ def f1_score(set1, set2, beta = 1):
 
     return (1+beta)*(precision*recall)/(beta*precision+recall)
 
-#cluster_similarity
-def cluster_similarity(cluster1, cluster2):
-    """ compute the similarity between cluster1 and cluster2. basically it is a pair of object 
-    similarity and dimension similarity. and by similarity we mean precision """
-    object_similarity = precision_sets(cluster1.objects, cluster2.objects)
-    dimension_similarity = precision_sets(cluster1.dimensions, cluster2.dimensions)
 
-    return (object_similarity, dimensions_similarity)
 
 
 ####################################################### F1-Score #####################################################
@@ -103,9 +96,11 @@ def f1_hidden_cluster_map(ref_clustering, target_clustering, beta = 1):
     mapped_hidden = {}
     hidden_clusters = ref_clustering.clusters
 
-    for clust in clusters:            
+    for clust in target_clustering.clusters:
+        
         mapped_precision = -1
         for hclust in hidden_clusters:
+            
             precision = precision_sets(hclust.objects, clust.objects)
             if precision > mapped_precision:
                 mapped_precision = precision
@@ -126,18 +121,20 @@ def f1_score_clustering(ref_clustering, target_clustering, beta = 1):
     
     total_f1 = 0.0
     for hidden_cluster, mapped_objects in mapped_clusters.iteritems():
+        print "%s, %s, %s"%(hidden_cluster.objects, mapped_objects,f1_score(hidden_cluster.objects, mapped_objects))
         total_f1 += f1_score(hidden_cluster.objects, mapped_objects)
 
     return total_f1/float(nbr_of_hidden)
 
 ####################################################### Entropy #######################################################
 def entropy_score_cluster(ref_clustering, target_cluster):
+    import math
     etp = 0.0
-    for clust in self.ref_clustering.clusters:
+    for clust in ref_clustering.clusters: #for each cluster of the hidden clustering
         """ the precision can be seen as the shared fraction/proba"""
-        proba = precision_set(cluste.objects, clust.objects)
+        proba = precision_sets(target_cluster.objects, clust.objects) #compute the precision(target, hidden)
         if (proba != 0):
-            etp += -proba*np.log(proba)                
+            etp += -proba*math.log(proba)                
     return etp
     
 def entropy_score_clustering(ref_clustering, target_clustering, beta = 1):
@@ -153,10 +150,88 @@ def entropy_score_clustering(ref_clustering, target_clustering, beta = 1):
     if (entropy_max_sum == 0):
         return 1.0-0.0
     else:
-        entropy_weighted_sum = sum([len(p.objects)*self.entropy_cluster(ref_clustering, p) for 
-            p in target_clustering.clusters])
+        entropy_weighted_sum = sum(len(p.objects)*entropy_score_cluster(ref_clustering, p)
+                                   for p in target_clustering.clusters)
             
         entropy_weighted_average = float(entropy_weighted_sum)/entropy_max_sum;
         return 1.0-entropy_weighted_average    
 
-#######################################################  #######################################################
+#######################################################  RNIA  ######################################################
+def rnia_clustering_coordonates(clustering):
+    """ return a list of pair depicting the coordonates of the micro-objects """
+    rs = set([])
+    
+    for cluster in clustering.clusters:
+        for row in cluster.objects:
+            for col in cluster.dimensions:
+                rs.add((row, col))
+                    
+    return rs   
+    
+
+def rnia_score(ref_clustering, target_clustering):
+     ref_coord = rnia_clustering_coordonates(ref_clustering)
+     target_coord = rnia_clustering_coordonates(target_clustering)
+     
+     union = float(len(set.union(ref_coord, target_coord)))
+        
+     if union ==0:
+         return 0.0
+     
+     intersection = len(set.intersection(ref_coord, target_coord))    
+     
+     return 1-(union-intersection)/union
+
+def cluster_intersection(clustA, clustB):
+        rsA = set([])
+        for row in clustA.objects:
+                for col in clustA.dimensions:
+                    rsA.add((row, col))
+
+        rsB = set([])
+        for row in clustB.objects:
+                for col in clustB.dimensions:
+                    rsB.add((row, col))
+
+        intersection = rsA.intersection(rsB)
+
+        return len(intersection)
+
+
+def make_ce_matrix(ref_clustering, target_clustering):
+    #clt = clustering    
+    ref_clusters = ref_clustering.clusters
+    target_clusters = target_clustering.clusters
+    
+    nbr_row = len(ref_clusters) 
+    nbr_col = len(target_clusters)
+    mat = 0*np.ones([nbr_row, nbr_col], dtype=int)    
+    for i in xrange(nbr_row):
+        for j in xrange(nbr_col):
+            ref_clust = ref_clusters[i]
+            target_clust = target_clusters[j]
+            mat[i,j] = cluster_intersection(ref_clust, target_clust)
+    return mat
+        
+def clustering_error(ref_clustering, target_clustering):
+    mat = make_ce_matrix(ref_clustering, target_clustering)
+    
+    ref_coord = rnia_clustering_coordonates(ref_clustering)
+    target_coord = rnia_clustering_coordonates(target_clustering)
+    U = float(len(set.union(ref_coord, target_coord)))
+    
+    if U ==0:        
+        return 0.0    
+    
+    hung_solver = Hungarian()
+    rs, D_Max = hung_solver.compute(mat, True)    
+    
+    if U==0:
+        return 0        
+    return 1-(U-D_Max)/(U)
+
+def ce_score(ref_clustering, target_clustering):
+    return clustering_error(ref_clustering, target_clustering)
+
+
+#######################################################  CE  #######################################################

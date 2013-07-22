@@ -22,6 +22,7 @@ class TestKmClustering(unittest.TestCase):
         self.assertEqual(cluster2.objects_str, "1,2,3")
         self.assertEqual(cluster2.dimensions_str, "3,2,1") # not sorted - not a bug, acutally expected
 
+        
 
     def test_clustering_construction(self):
         cluster1 = SubspaceCluster(clustering_id = "test1", objects = [0, 1,2,3], dimensions = [3,5,1])
