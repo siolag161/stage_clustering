@@ -97,7 +97,9 @@ def cluster_similarity(cluster1, cluster2):
 
 
 ####################################################### F1-Score #####################################################
-def best_hidden_cluster_matches(ref_clustering, target_clustering, beta = 1):
+def f1_hidden_cluster_map(ref_clustering, target_clustering, beta = 1):
+    """ each found cluster is mapped to the hidden cluster 
+    which is covered to the most part by this found cluster"""
     mapped_hidden = {}
     hidden_clusters = ref_clustering.clusters
 
@@ -119,10 +121,42 @@ def f1_score_clustering(ref_clustering, target_clustering, beta = 1):
     if not ref_clustering.clusters or not target_clustering.clusters:
         return 0.0
 
-    nbr_of_hidden = len(ref_clustering.clusters) # number of hidden clusters
-    best_matches = 
+    nbr_of_hidden = len(ref_clustering.clusters) # number of hidden clusters    
+    mapped_clusters = f1_hidden_cluster_map(ref_clustering, target_clustering, beta)
+    
+    total_f1 = 0.0
+    for hidden_cluster, mapped_objects in mapped_clusters.iteritems():
+        total_f1 += f1_score(hidden_cluster.objects, mapped_objects)
+
+    return total_f1/float(nbr_of_hidden)
 
 ####################################################### Entropy #######################################################
+def entropy_score_cluster(ref_clustering, target_cluster):
+    etp = 0.0
+    for clust in self.ref_clustering.clusters:
+        """ the precision can be seen as the shared fraction/proba"""
+        proba = precision_set(cluste.objects, clust.objects)
+        if (proba != 0):
+            etp += -proba*np.log(proba)                
+    return etp
+    
+def entropy_score_clustering(ref_clustering, target_clustering, beta = 1):
+    import math
+    """ compute the entropy-measure of clustering. entropy is a metric to measure the homogeneity of
+        a clustering. it should contains mainly objects from one ref cluster. a split is deemed to have bad quality"""
+    if not ref_clustering.clusters or not target_clustering.clusters:
+        return 0.0
+    m = len(ref_clustering.clusters)
+    entropy_max = math.log(m)
 
+    entropy_max_sum =  entropy_max*sum([len(p.objects) for p in target_clustering.clusters])
+    if (entropy_max_sum == 0):
+        return 1.0-0.0
+    else:
+        entropy_weighted_sum = sum([len(p.objects)*self.entropy_cluster(ref_clustering, p) for 
+            p in target_clustering.clusters])
+            
+        entropy_weighted_average = float(entropy_weighted_sum)/entropy_max_sum;
+        return 1.0-entropy_weighted_average    
 
 #######################################################  #######################################################
