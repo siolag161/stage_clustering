@@ -64,8 +64,8 @@ class SubspaceClustering:
         else:
             self.clustering_id  = clustering_id
 
-    def set_contains_noise(self,, val):
-        self.contains_noise
+    def set_contains_noise(self, val):
+        self.contains_noise = val
             
     def contains_noise(self):
         return self.contains_noise
@@ -92,21 +92,47 @@ class SubspaceClustering:
         return objs
 
     def add_cluster(self, cluster):
+        if not cluster.clustering_id and self.clustering_id:
+            cluster.clustering_id = self.clustering_id
+        
         if self.clustering_id == cluster.clustering_id:
             self.clusters.append(cluster)
 
+    def __key(self):
+        return self.generate_id()
+
+    def __eq__(x, y):
+        return x.__key() == y.__key()
+
+    def __hash__(self):
+        return hash(self.__key())
+        
     
 class MeasureMixin:
     """ mixins (a particular pythnic syntatic sugar) for measures/values dictionary """
+    from collections import defaultdict
     def __init__(self, **measures):
-        self.measures = measures
+        if measures:
+            self.measures = measures
+        else:
+            self.measures = {}
+
+    def set_value(self, key, value):
+        self.measures[key] = value
 
     def get_value(self, key):
         return self.measures.get(key)
 
+    def update_measures(self, measures):
+        self.measures.update(measures)
+
+    def get_measure_names(self):
+        return self.measures.keys()    
+    
 
 ##################################### import/export from CSV  ####################################
-
+FIELD_NAMES = ["algorithm", "parameters", "run", "dimensions", "objects"]  
+    
 def write_clustering(clusterings, basic_fields, measure_fields, ofile, with_clusters = True):
     """ write to file the clustering with optional additional measure fields. 
     the with_cluster indicates wherether we write at clustering or cluster level"""
@@ -114,25 +140,27 @@ def write_clustering(clusterings, basic_fields, measure_fields, ofile, with_clus
     with open(ofile, 'wb') as out_file:
         print("writing data to %s..." %(ofile))
 
-        fields = basic_fields.update(measure_fields)
+        fields = list(basic_fields)
+        fields.extend(measure_fields)
         writer = csv.DictWriter(out_file, delimiter=',', fieldnames=fields)
         writer.writerow(dict((fn,fn) for fn in fields))
         
         for clustering in clusterings:
             for cluster in clustering.clusters:
-                row_basic = dict((fn, clustering.__dict__[fn]) for fn in basic_fields)
+                row_basic = dict((fn, clustering.__dict__[fn]) for fn in basic_fields if  clustering.__dict__.has_key(fn))
+                row_basic.update(dict((fn, cluster.__dict__[fn]) for fn in basic_fields if  cluster.__dict__.has_key(fn)))
                 row_measure = dict((fn, clustering.get_value(fn)) for fn in measure_fields)
                 
-                row = row_basic
+                row = dict(row_basic)
                 row.update(row_measure)
 
                 if with_clusters:
                     row.update({'objects': cluster.objects_str, 'dimensions': cluster.dimensions_str})
 
-                print row                
+                    #print row                
                 writer.writerow(row)
 
-def read_clustering(ifile, field_names, is_cluster = True, contains_noise = False, clustering_on_dimension = False):
+def read_clustering(ifile, field_names, is_cluster = True, contains_noise_ = False, clustering_on_dimension_ = False):
     """ import clustering from a csv-like text file. the field names are used to limit the fields we want to read
     return a list of clusterings. """
     import csv
@@ -149,7 +177,7 @@ def read_clustering(ifile, field_names, is_cluster = True, contains_noise = Fals
         line_count = 0
         for row in reader:
             clustering = SubspaceClustering(row['algorithm'], row['parameters'], row['run'],
-                 row['clustering_id'], clusters = [], contains_noise, clustering_on_dimension)
+                 row['clustering_id'], clusters = [], contains_noise = contains_noise_, clustering_on_dimension =  clustering_on_dimension_)
 
             clustering_id = clustering._generate_id()
             clusterings.setdefault(clustering_id, clustering)
@@ -165,12 +193,13 @@ def read_clustering(ifile, field_names, is_cluster = True, contains_noise = Fals
 def read_matrix_data(ifile):
     """ read from an extended bedgraph-like file to a numpy array"""
     import csv
-    with open(ofile, 'rb') as in_file:
+    import numpy as np
+    with open(ifile, 'rb') as in_file:
         print("reading %s to get data..." %(ifile))
         file_dialect = csv.Sniffer().sniff(in_file.read(1024))
         in_file.seek(0)
         
-        reader = csv.DictReader(csvfile = in_file, fieldnames = field_names, dialect = file_dialect)
+        reader = csv.reader(in_file, dialect = file_dialect)
         reader.next()
 
         line_count = 0
@@ -178,8 +207,11 @@ def read_matrix_data(ifile):
             line_count += 1
             vals = row[3:]
             if (line_count == 1):
-                data = np.array(vals, dtype=numpy.float64)
+                data = np.array(vals, dtype=np.float64)
             else:
-                data = np.vstack((data, numpy.array(vals, dtype=numpy.float64)))
+                data = np.vstack((data, np.array(vals, dtype=np.float64)))
                 
         return data
+
+
+        

@@ -1,56 +1,45 @@
-from km import *
 from clustering import *
+from km import *
 from measures import *
+from numpy import random
+from numpy.random import rand
+from pareto import *
+##################################################################        
+FIELD_BASIC = ["algorithm", "parameters", "run", "dimensions", "objects"]  
+FIELD_MEASURE = ['spatial_coherence', 'distortion']
+def main():
+    import sys
 
-import unittest 
+    path = sys.argv[1]
+    
+    print path
+    #data =  read_matrix_data(path)
+    import time
+    from scipy.cluster.vq import whiten
+    random.seed((1030,2000))
 
-class TestKmClustering(unittest.TestCase):
-    def test_kmclustering_construction(self):
-        kmc = KMClustering(algorithm = "sexton", parameters = "k=4", run = 1, clustering_id = None, spatial_coherence = 1, distortion = 2)
-        self.assertEqual(kmc.algorithm, "sexton")
-        self.assertEqual(kmc.parameters, "k=4")
-        self.assertEqual(kmc.run, 1)
-        self.assertEqual(kmc.get_value("spatial_coherence"), 1)
-        self.assertEqual(kmc.get_value("distortion"), 2)
+    data = np.random.rand(120, 8)
 
-    def test_cluster_construction(self):        
-        cluster1 = SubspaceCluster(clustering_id = "", objects = [1,2,3], dimensions = [3,5,1])
-        self.assertEqual(cluster1.objects_str, "1,2,3")
-        self.assertEqual(cluster1.dimensions_str, "1,3,5")
+    km = kmeans_execute(data, dimensions_size = 4, number_of_clusters = 4, processes = 7)
+    #write_clustering(km, basic_fields = FIELD_BASIC, measure_fields = FIELD_MEASURE,  ofile = "./test/test_km_ouput.csv", with_clusters = True)
+    # print km
+    #clt = km[0]
 
-        cluster2 = SubspaceCluster(clustering_id = "", objects = "1,2,3", dimensions = "3,2,1")
-        self.assertEqual(cluster2.objects_str, "1,2,3")
-        self.assertEqual(cluster2.dimensions_str, "3,2,1") # not sorted - not a bug, acutally expected
+   
 
-
-    def test_clustering_construction(self):
-        cluster1 = SubspaceCluster(clustering_id = "test1", objects = [0, 1,2,3], dimensions = [3,5,1])
-        cluster2 = SubspaceCluster(clustering_id = "test1", objects = "4,5,6,7", dimensions = "3,2,1")
-        cluster3 = SubspaceCluster(clustering_id = "test1", objects = "8,9", dimensions = "3,2,1")
-        cluster4 = SubspaceCluster(clustering_id = "test1", objects = "7", dimensions = "3,2,1")
-
-        clt = SubspaceClustering(algorithm = "algo", parameters = "params", run = 1,
-                 clustering_id = "test1", clusters = [cluster1, cluster2, cluster3, cluster4])
-        self.assertEqual(clt.clustering_id, "test1")
-
-        clt = SubspaceClustering(algorithm = "algo", parameters = "params", run = 1,
-                 clustering_id = None, clusters = [cluster1, cluster2, cluster3, cluster4])
-        self.assertEqual(clt.clustering_id, "algo_params_1")
-
-        clt = SubspaceClustering(algorithm = "algo", parameters = "params", run = 1,
-                 clustering_id = None, clusters = [cluster1, cluster2, cluster3, cluster4])
-        clt.set_clustering_on_dimension(True)
-        self.assertEqual(clt.clustering_id, "algo_params_1_1,3,5")
+    print (len(km))
+    clts = pareto_filter(km, ['spatial_coherence', 'distortion'])
+    #print clts
+    print (len(clts))
         
+    #print spatial_coherence(clt, 10) 
+    #print(len(clt.clusters))
 
-    def test_spatial_coherence(self):
-        cluster1 = SubspaceCluster(clustering_id = "test1", objects = [0, 1,2,3], dimensions = [3,5,1])
-        cluster2 = SubspaceCluster(clustering_id = "test1", objects = "4,5,6", dimensions = "3,2,1")
-        cluster3 = SubspaceCluster(clustering_id = "test1", objects = "8,9", dimensions = "3,2,1")
-        cluster4 = SubspaceCluster(clustering_id = "test1", objects = "7", dimensions = "3,2,1")
+    
 
-        clt = SubspaceClustering(algorithm = "algo", parameters = "params", run = 1,
-                 clustering_id = "test1", clusters = [cluster1, cluster2, cluster3, cluster4])
-        self.assertEqual(spatial_coherence(clt, 10)[0], -4.0/3)
+if __name__ == "__main__":   
 
-        
+    main()
+    
+   
+    

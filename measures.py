@@ -4,7 +4,7 @@ from clustering import *
 def cluster_label_change(cluster, max_size):
     l = len(cluster.objects)
     if l == 0: return 0
-    cluster = list(cluster.objects) #list(cluster)
+    cluster = sorted(cluster.objects) #list(cluster)
 
     nbr = 0
     nxt = cluster[l-1]
@@ -50,6 +50,79 @@ def spatial_coherence(clustering, cardinality):
     
     nbr_changes = clustering_label_change(clustering, cardinality)
     expected  = expected_number_of_changes(clustering, cardinality)
-    if not expected: return 0.0
+
+    #print "nbr_changes=%s, expected=%s" %(nbr_changes, expected)
+    if not expected: return 0.0, 1
 
     return float(nbr_changes-expected)/(cardinality-expected), 1
+
+####################################################### Similarities #######################################################
+# 2 helpers for computing the precision and the recall between 2 sets
+def set_convert(ls):
+    if ls.__class__.__name__ !='set':
+        ls = set(ls)
+    return ls
+
+def precision_sets(set1, set2):
+    """ computes the precision score of 2 sets"""
+
+    set1, set2 = set_convert(set1), set_convert(set2)
+    intersection = set1.intersection(set2)
+    if set1:
+        return float(len(intersection))/len(set1)
+    return 0.0
+
+def recall_sets(set1, set2):
+    """ computes the recall of 2 sets """
+    return precision_sets(set2, set1)
+
+#f1
+def f1_score(set1, set2, beta = 1):
+    """ if b > 1 that means the completeness is more important (weighted more) than the homogeneity """
+    precision = precision_sets(set1, set2)
+    recall = recall_sets(set1, set2)
+
+    if (precision+recall == 0): return 0.0
+
+    return (1+beta)*(precision*recall)/(beta*precision+recall)
+
+#cluster_similarity
+def cluster_similarity(cluster1, cluster2):
+    """ compute the similarity between cluster1 and cluster2. basically it is a pair of object 
+    similarity and dimension similarity. and by similarity we mean precision """
+    object_similarity = precision_sets(cluster1.objects, cluster2.objects)
+    dimension_similarity = precision_sets(cluster1.dimensions, cluster2.dimensions)
+
+    return (object_similarity, dimensions_similarity)
+
+
+####################################################### F1-Score #####################################################
+def best_hidden_cluster_matches(ref_clustering, target_clustering, beta = 1):
+    mapped_hidden = {}
+    hidden_clusters = ref_clustering.clusters
+
+    for clust in clusters:            
+        mapped_precision = -1
+        for hclust in hidden_clusters:
+            precision = precision_sets(hclust.objects, clust.objects)
+            if precision > mapped_precision:
+                mapped_precision = precision
+        if mapped_precision > 0:
+            for hclust in hidden_clusters:
+                if mapped_precision == precision_sets(hclust.objects, clust.objects):
+                    mapped_hidden.setdefault(hclust, set())
+                    mapped_hidden[hclust].update(clust.objects)
+    return mapped_hidden
+                
+
+def f1_score_clustering(ref_clustering, target_clustering, beta = 1):
+    if not ref_clustering.clusters or not target_clustering.clusters:
+        return 0.0
+
+    nbr_of_hidden = len(ref_clustering.clusters) # number of hidden clusters
+    best_matches = 
+
+####################################################### Entropy #######################################################
+
+
+#######################################################  #######################################################
