@@ -87,7 +87,7 @@ def main(argv):
         elif opt in ("-i", "--ifile"):
             inputfile = arg
         elif opt in ("-o", "--ofile"):
-            outputfile = arg
+23            outputfile = arg
         elif opt in ("-d", "--dize"):
             dsize = int(arg)
         elif opt in ("-n", "--nclust"):
